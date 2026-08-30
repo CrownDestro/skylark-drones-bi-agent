@@ -48,6 +48,7 @@ flowchart TB
     class B,A agent
     class M,X data
     class L,G ai
+```
 
 ---
 
