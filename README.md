@@ -68,6 +68,7 @@ flowchart TB
     class B,A backend
     class M,X data
     class L,G ai
+```
 
 ---
 
