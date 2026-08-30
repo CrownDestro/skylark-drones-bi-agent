@@ -15,16 +15,35 @@ The agent dynamically queries two Monday.com boards (Deals + Work Orders) via th
 ## 🏗️ Architecture
 
 ```mermaid
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "background": "#0d1117",
+    "primaryTextColor": "#111827",
+    "secondaryTextColor": "#111827",
+    "lineColor": "#64748b",
+    "fontFamily": "Inter, Arial, sans-serif"
+  }
+}}%%
+
 flowchart TB
 
     U["👤 Business User"]
+
     F["🖥️ Next.js<br/>Conversational UI"]
+
     B["⚡ FastAPI<br/>BI Agent API"]
+
     A["🤖 AI Agent"]
+
     M["🟣 Monday.com<br/>Deals + Work Orders"]
+
     X["📊 Analytics<br/>Pipeline • Billing • Forecast"]
-    L["🧠 Gemini"]
-    G["⚡ Groq<br/>Fallback"]
+
+    L["🧠 Gemini<br/>Primary LLM"]
+
+    G["⚡ Groq<br/>Fallback LLM"]
+
 
     U --> F
     F <-->|HTTPS / SSE| B
@@ -37,18 +56,18 @@ flowchart TB
     A --> L
     L -.->|Fallback| G
 
-    classDef user fill:#f8fafc,stroke:#64748b,stroke-width:2px
-    classDef app fill:#eef2ff,stroke:#6366f1,stroke-width:2px
-    classDef agent fill:#ecfeff,stroke:#0891b2,stroke-width:2px
-    classDef data fill:#f5f3ff,stroke:#7c3aed,stroke-width:2px
-    classDef ai fill:#fdf4ff,stroke:#c026d3,stroke-width:2px
+
+    classDef user fill:#ffffff,stroke:#64748b,stroke-width:2px,color:#111827
+    classDef frontend fill:#eef2ff,stroke:#6366f1,stroke-width:2px,color:#111827
+    classDef backend fill:#ecfeff,stroke:#0891b2,stroke-width:2px,color:#111827
+    classDef data fill:#f5f3ff,stroke:#7c3aed,stroke-width:2px,color:#111827
+    classDef ai fill:#fdf4ff,stroke:#c026d3,stroke-width:2px,color:#111827
 
     class U user
-    class F app
-    class B,A agent
+    class F frontend
+    class B,A backend
     class M,X data
     class L,G ai
-```
 
 ---
 
