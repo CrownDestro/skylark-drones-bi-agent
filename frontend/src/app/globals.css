@@ -43,3 +43,36 @@ body {
 .prose strong {
   font-weight: 600;
 }
+
+/* Markdown Table Styles */
+.prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1em;
+  margin-bottom: 1em;
+  display: block;
+  overflow-x: auto;
+  border-radius: 8px;
+}
+
+.prose th,
+.prose td {
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+  text-align: left;
+}
+
+.prose th {
+  font-weight: 600;
+  background: #f8fafc;
+}
+
+@media (prefers-color-scheme: dark) {
+  .prose th,
+  .prose td {
+    border-color: #333;
+  }
+  .prose th {
+    background: #1a1a1a;
+  }
+}

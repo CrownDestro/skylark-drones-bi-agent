@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { Send, CheckCircle2, CircleDashed, AlertTriangle, ArrowRight, ChevronDown } from "lucide-react";
 
 interface ChatMessage {
@@ -261,7 +262,7 @@ export default function Home() {
                   )}
 
                   <div className="prose prose-sm md:prose-base prose-slate max-w-none">
-                    {m.role === "user" ? m.content : <ReactMarkdown>{m.content}</ReactMarkdown>}
+                    {m.role === "user" ? m.content : <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>}
                   </div>
                 </div>
               </div>
