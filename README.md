@@ -12,30 +12,42 @@ The agent dynamically queries two Monday.com boards (Deals + Work Orders) via th
 
 ---
 
-## Architecture
+## 🏗️ Architecture
 
-```
-Browser (HTML/CSS/JS)
-       ↓ HTTPS
-FastAPI Backend (Python)
-       ├──→ Monday GraphQL API (read-only)
-       │        ↓
-       │    Deals + Work Orders
-       │        ↓
-       │    Normalizer (dates, sectors, statuses, currency)
-       │        ↓
-       │    Deterministic Analytics
-       │        pipeline.py  → pipeline, weighted pipeline, sector breakdown
-       │        revenue.py   → billed, collected, receivables, collection rate
-       │        work_orders.py → status, execution, operations
-       │        cross_board.py → pipeline vs execution, leadership update
-       │
-       └──→ LLM Provider
-                ↓
-            Gemini (primary) → Groq (fallback) → Deterministic (always available)
-                ↓
-            Executive-language response from structured analytics context
-```
+```mermaid
+flowchart TB
+
+    U["👤 Business User"]
+    F["🖥️ Next.js<br/>Conversational UI"]
+    B["⚡ FastAPI<br/>BI Agent API"]
+    A["🤖 AI Agent"]
+    M["🟣 Monday.com<br/>Deals + Work Orders"]
+    X["📊 Analytics<br/>Pipeline • Billing • Forecast"]
+    L["🧠 Gemini"]
+    G["⚡ Groq<br/>Fallback"]
+
+    U --> F
+    F <-->|HTTPS / SSE| B
+    B --> A
+
+    A --> M
+    M --> X
+    X --> A
+
+    A --> L
+    L -.->|Fallback| G
+
+    classDef user fill:#f8fafc,stroke:#64748b,stroke-width:2px
+    classDef app fill:#eef2ff,stroke:#6366f1,stroke-width:2px
+    classDef agent fill:#ecfeff,stroke:#0891b2,stroke-width:2px
+    classDef data fill:#f5f3ff,stroke:#7c3aed,stroke-width:2px
+    classDef ai fill:#fdf4ff,stroke:#c026d3,stroke-width:2px
+
+    class U user
+    class F app
+    class B,A agent
+    class M,X data
+    class L,G ai
 
 ---
 
