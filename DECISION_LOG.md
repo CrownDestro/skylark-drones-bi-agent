@@ -31,49 +31,35 @@ The dataset is intentionally messy. Trusting an LLM to sum, filter, or aggregate
 
 ---
 
-## 4. Closure Probability Assumption
+## 4. Assumptions
+
+The following core assumptions were strictly applied in the analytics logic:
+
+1. **Probability weights:**
+   - High = 80%
+   - Medium = 50%
+   - Low = 20%
+   - Unknown = 30%
+   *(These are analytical assumptions and are NOT values supplied by the source data. The Unknown = 30% assumption is used for deals with missing Closure Probability. This caveat is surfaced when showing weighted pipeline).*
+
+2. **Currency:**
+   - INR (₹)
+   *(Currency is assumed to be INR and is not provided by the raw source numbers).*
+
+3. **Quarter:**
+   - Dynamically calculated using calendar quarters (from the runtime/current date).
+
+---
+
+## 5. Closure Probability Transparency
 
 The Closure Probability field in Monday contains qualitative values: **High**, **Medium**, **Low** (or empty). These are not numeric probabilities — they are CRM labels.
 
-For weighted pipeline, the following mapping was applied:
-
-| Label | Weight Applied |
-|---|---|
-| High | 80% |
-| Medium | 50% |
-| Low | 20% |
-| Unknown / Missing | 30% (conservative) |
-
-**This is an analytical assumption, not source data.** It is stated in all responses where weighted pipeline is shown.
-
-**Impact:** 258 of 344 deals (75%) have no closure probability — the 30% default applies to most of the pipeline. The weighted pipeline figure should be interpreted as an indicative estimate.
+**Impact:** 258 of 344 deals (75%) have no closure probability — the 30% default applies to most of the pipeline. The weighted pipeline figure should be interpreted as an indicative estimate, and this assumption is visibly surfaced to the user.
 
 ---
 
-## 5. Calendar Quarter Assumption
 
-"Current quarter" is calculated dynamically from the runtime date using calendar quarters:
-
-- Q1: Jan–Mar · Q2: Apr–Jun · Q3: Jul–Sep · Q4: Oct–Dec
-
-As of 30 August 2026, this resolves to **Q3 2026 (1 Jul – 30 Sep 2026)**.
-
-**Caveat:** 92% of open deals have no close date. Quarterly pipeline filtering has limited applicability; the system includes all undated open deals in the quarterly view and flags this limitation.
-
----
-
-## 6. Currency Assumption (INR)
-
-All monetary values in Monday.com are assumed to be **Indian Rupees (INR)**. The source data was masked; no currency symbol appears in the raw Monday fields. INR is assumed from business context. Figures are displayed as Cr (crore) and L (lakh).
-
-**The following are treated as distinct and never conflated:**
-- Deal Value (pipeline potential)
-- Contract Amount / Amount (Excl. GST)
-- Billed Value (invoiced amount)
-- Collected Amount (received cash)
-- Amount Receivable (outstanding)
-
----
 
 ## 7. Data Quality Observations (Actual Data — Validated 30 Aug 2026)
 

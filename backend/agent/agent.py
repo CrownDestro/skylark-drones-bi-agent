@@ -61,9 +61,7 @@ SECTOR_PATTERNS = {
     "power line": "Powerline",
     "renewables": "Renewables",
     "renewable": "Renewables",
-    # 'energy' is ambiguous → we use Renewables as primary,
-    # and also check Powerline. Both sectors fetched and merged.
-    "energy": "Renewables",
+    "energy": "Energy",
     "solar": "Renewables",
     "railways": "Railways",
     "railway": "Railways",
@@ -77,8 +75,6 @@ SECTOR_PATTERNS = {
     "surveillance": "Security And Surveillance",
 }
 
-# Sectors that map to multiple boards (for cross-sector energy queries)
-ENERGY_SECTORS = {"Renewables", "Powerline"}
 
 PERIOD_PATTERNS = {
     "this quarter": "current_quarter",
@@ -141,6 +137,13 @@ def _deterministic_response(intent: str, analytics_data: Dict, sector: Optional[
         lines.append(f"- Open Deals: **{p.get('open_deal_count', 'N/A')}**")
         lines.append(f"- Total Pipeline: **{p.get('total_pipeline_fmt', 'N/A')}**")
         lines.append(f"- Weighted Pipeline: **{p.get('weighted_pipeline_fmt', 'N/A')}**")
+        
+        missing_prob = p.get('missing_probability_count', 0)
+        total_open = p.get('open_deal_count', 1) or 1
+        if missing_prob > 0:
+            pct = round((missing_prob / total_open) * 100)
+            lines.append(f"  *Assumes 30% probability for {missing_prob} deals ({pct}%) missing this value.*")
+            
         lines.append(f"- Deals Won: **{p.get('won_value_fmt', 'N/A')}**\n")
 
         lines.append("### 💰 Revenue & Collections (Work Orders)")
@@ -182,6 +185,13 @@ def _deterministic_response(intent: str, analytics_data: Dict, sector: Optional[
         lines.append(f"- Open Deals: **{p.get('open_deal_count', 'N/A')}**")
         lines.append(f"- Total Pipeline: **{p.get('total_pipeline_fmt', 'N/A')}**")
         lines.append(f"- Weighted Pipeline: **{p.get('weighted_pipeline_fmt', 'N/A')}**")
+        
+        missing_prob = p.get('missing_probability_count', 0)
+        total_open = p.get('open_deal_count', 1) or 1
+        if missing_prob > 0:
+            pct = round((missing_prob / total_open) * 100)
+            lines.append(f"  *Assumes 30% probability for {missing_prob} deals ({pct}%) missing this value.*")
+
         lines.append(f"- Deals Won: **{p.get('won_value_fmt', 'N/A')}**\n")
 
         if p.get("top_deals"):
@@ -395,35 +405,23 @@ class BIAgent:
             caveats = []
 
             if intent in ("pipeline_analysis", "deals_analysis"):
-                from backend.analytics.pipeline import calculate_pipeline
-                # For "energy" queries, merge Renewables + Powerline sectors
-                is_energy = "energy" in user_message.lower()
-                if is_energy:
-                    r = calculate_pipeline(deals, sector="Renewables", period=period)
-                    p = calculate_pipeline(deals, sector="Powerline", period=period)
-                    # Merge the two sector results
-                    merged_pipeline = r["total_pipeline"] + p["total_pipeline"]
-                    merged_weighted = r["weighted_pipeline"] + p["weighted_pipeline"]
-                    merged_won = r["won_value"] + p["won_value"]
-                    from backend.analytics.utils import fmt_inr
-                    analytics_data["pipeline"] = {
-                        **r,
-                        "total_pipeline": merged_pipeline,
-                        "total_pipeline_fmt": fmt_inr(merged_pipeline),
-                        "weighted_pipeline": merged_weighted,
-                        "weighted_pipeline_fmt": fmt_inr(merged_weighted),
-                        "won_value": merged_won,
-                        "won_value_fmt": fmt_inr(merged_won),
-                        "open_deal_count": r["open_deal_count"] + p["open_deal_count"],
-                        "sector_filter": "Energy (Renewables + Powerline)",
-                        "top_deals": sorted(
-                            r["top_deals"] + p["top_deals"],
-                            key=lambda x: x["value"],
-                            reverse=True,
-                        )[:5],
+                if sector == "Energy":
+                    return {
+                        "response": (
+                            "There is no explicit 'Energy' sector in the source Deals data. "
+                            "The available related sectors are **Renewables** and **Powerline**. "
+                            "Please ask about those specifically if you would like to see their pipelines."
+                        ),
+                        "intent": intent,
+                        "sector": sector,
+                        "period": period,
+                        "data_quality": {},
+                        "analytics_used": [],
+                        "sources": ["Deals Board"],
                     }
-                else:
-                    analytics_data["pipeline"] = calculate_pipeline(deals, sector=sector, period=period)
+
+                from backend.analytics.pipeline import calculate_pipeline
+                analytics_data["pipeline"] = calculate_pipeline(deals, sector=sector, period=period)
                 caveats += self._deals_quality.to_caveats(threshold=5)
 
             elif intent == "revenue_analysis":

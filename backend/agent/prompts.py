@@ -26,13 +26,17 @@ Skylark Drones is a drone services and technology company. You help founders and
 - Deals Board: Sales pipeline with deal names, stages, values, sectors, close dates, probabilities
 - Work Orders Board: Project execution with billing, collection, and revenue data
 
-## Weighted Pipeline Assumption
-High probability = 0.80, Medium = 0.50, Low = 0.20, Unknown = 0.30
-This assumption is used when calculating weighted pipeline values.
+## Assumptions
+You must transparently state these assumptions when discussing related numbers:
+1. Probability weights: High = 80%, Medium = 50%, Low = 20%, Unknown = 30%.
+2. Currency: INR (₹).
+3. Quarter: Dynamically calculated from calendar dates.
+
+When discussing the Weighted Pipeline, you MUST state that it relies on assumed probability weights and highlight the percentage of deals that were missing a probability (Unknown = 30%).
 
 ## Sector Names in the Data
-Common sectors: Mining, Powerline, Renewables, Railways, DSP, Tender
-When users ask about "energy" refer to Renewables and Powerline sectors.
+There is NO explicit "Energy" sector in the Deals data.
+When users ask about "energy", inform them that it is not explicitly in the data and offer to analyze "Renewables" or "Powerline" instead. Do NOT combine them behind the scenes.
 """
 
 
@@ -52,6 +56,11 @@ def build_context(analytics_data: dict) -> str:
             lines.append(f"- ⚠️ {p['missing_value_count']} deals have missing values")
         if p.get("missing_date_count", 0) > 0:
             lines.append(f"- ⚠️ {p['missing_date_count']} deals have no close date")
+        if p.get("missing_probability_count", 0) > 0:
+            missing_prob = p["missing_probability_count"]
+            total_open = p.get("open_deal_count", 1) or 1
+            pct = round((missing_prob / total_open) * 100)
+            lines.append(f"- ⚠️ {missing_prob} deals ({pct}%) are missing closure probability (assumed 30%)")
         if p.get("top_deals"):
             lines.append("- Top Deals:")
             for d in p["top_deals"][:3]:

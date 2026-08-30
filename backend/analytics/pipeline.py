@@ -110,6 +110,10 @@ def calculate_pipeline(
         if d.get("close_date") is None and d.get("tentative_close_date") is None
     )
 
+    missing_prob_deals = [d for d in open_deals if not str(d.get("closure_probability") or "").strip()]
+    missing_probability_count = len(missing_prob_deals)
+    missing_prob_weighted_value = sum((d.get("deal_value") or 0) * PROBABILITY_WEIGHTS.get("", 0.3) for d in missing_prob_deals)
+
     # Stage breakdown
     stage_breakdown: Dict[str, Dict] = defaultdict(lambda: {"count": 0, "value": 0.0})
     for d in filtered:
@@ -154,6 +158,9 @@ def calculate_pipeline(
         ],
         "missing_value_count": missing_value_count,
         "missing_date_count": missing_date_count,
+        "missing_probability_count": missing_probability_count,
+        "missing_probability_weighted_value": missing_prob_weighted_value,
+        "missing_probability_weighted_value_fmt": fmt_inr(missing_prob_weighted_value),
         "sector_filter": sector,
         "period_filter": period,
         "quarter_info": (lambda q: f"Q{(q.month-1)//3+1} {q.year}")(current_quarter()[0]) if period == "current_quarter" else None,
