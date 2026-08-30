@@ -20,6 +20,7 @@ import asyncio
 import json
 import logging
 import sys
+import os
 from datetime import datetime
 from typing import List, Optional
 
@@ -51,23 +52,16 @@ app = FastAPI(
 )
 
 # CORS: allow frontend origins
-_origins = [
-    "http://localhost:3000",
-    "http://localhost:8080",
-    "http://127.0.0.1:3000",
-    "http://127.0.0.1:5500",
-    "http://localhost:5500",
-    "*",  # Permissive for hosted demo; tighten per-deployment via FRONTEND_URL
-]
-if FRONTEND_URL and FRONTEND_URL not in _origins:
-    _origins.insert(0, FRONTEND_URL)
+# Load CORS origins from environment, with local fallbacks
+frontend_urls_env = os.getenv("FRONTEND_URLS", "http://localhost:3000,http://127.0.0.1:3000")
+ALLOWED_ORIGINS = [url.strip() for url in frontend_urls_env.split(",") if url.strip()]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_origins,
-    allow_credentials=False,  # False when using wildcard origin
-    allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Content-Type", "Accept"],
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
