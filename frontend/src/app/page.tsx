@@ -50,6 +50,11 @@ export default function Home() {
         }),
       });
 
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
       if (!response.body) throw new Error("No response body");
 
       const reader = response.body.getReader();
@@ -93,11 +98,11 @@ export default function Home() {
           }
         }
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
       setMessages((prev) =>
         prev.map((m) =>
-          m.id === assistantId ? { ...m, isStreaming: false, content: "An error occurred connecting to the server." } : m
+          m.id === assistantId ? { ...m, isStreaming: false, content: `Error: ${err.message}` } : m
         )
       );
     } finally {
