@@ -60,12 +60,17 @@ if frontend_urls_env:
 
 ALLOWED_ORIGINS = list(set([url.strip().rstrip('/') for url in _raw_origins if url.strip()]))
 
+# Vercel Regex
+VERCEL_REGEX = r"^https://skylark-drones-[a-zA-Z0-9-]+\.vercel\.app$"
+
 # Log the allowed CORS origins on startup
 logger.info(f"Configured CORS Allowed Origins: {ALLOWED_ORIGINS}")
+logger.info(f"Configured CORS Regex Enabled: {VERCEL_REGEX}")
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=VERCEL_REGEX,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
