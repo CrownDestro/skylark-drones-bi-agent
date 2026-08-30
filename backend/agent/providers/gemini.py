@@ -1,9 +1,6 @@
 """
 LLM provider: Google Gemini via google-genai SDK.
 
-Uses the new google.genai.Client which supports AQ.* API keys
-from Google AI Studio (https://aistudio.google.com/apikey).
-
 Falls back gracefully on any error so the deterministic response
 always works as a last resort.
 """
