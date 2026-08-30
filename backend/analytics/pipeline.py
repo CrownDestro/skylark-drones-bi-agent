@@ -29,7 +29,12 @@ def _prob_weight(deal: Dict) -> float:
 
 def _is_open(deal: Dict) -> bool:
     status = deal.get("deal_status") or ""
-    return status == "Open"
+    stage = deal.get("deal_stage") or ""
+    if status in CLOSED_WON_STATUSES or status in CLOSED_LOST_STATUSES:
+        return False
+    if stage in CLOSED_WON_STATUSES or stage in CLOSED_LOST_STATUSES:
+        return False
+    return True
 
 
 def _in_period(deal: Dict, start: datetime, end: datetime) -> bool:
@@ -65,17 +70,26 @@ def calculate_pipeline(
     # Filter by period
     if period == "current_quarter":
         q_start, q_end = current_quarter()
-        period_filtered = [d for d in filtered if _in_period(d, q_start, q_end)]
-        # If very few deals have dates in quarter, include open deals without dates too
-        open_without_date = [d for d in filtered if _is_open(d) and not _in_period(d, q_start, q_end)
-                             and d.get("close_date") is None and d.get("tentative_close_date") is None]
-        period_filtered.extend(open_without_date)
-        filtered = period_filtered
+        
+        def _keep_deal(d):
+            # Open deals are always part of the active pipeline snapshot for this quarter
+            if _is_open(d):
+                return True
+            # Closed deals are only relevant if they closed within the period
+            return _in_period(d, q_start, q_end)
+            
+        filtered = [d for d in filtered if _keep_deal(d)]
     elif period == "current_year":
         year = datetime.now().year
         y_start = datetime(year, 1, 1)
         y_end = datetime(year, 12, 31, 23, 59, 59)
-        filtered = [d for d in filtered if _in_period(d, y_start, y_end)] or filtered
+        
+        def _keep_deal_year(d):
+            if _is_open(d):
+                return True
+            return _in_period(d, y_start, y_end)
+            
+        filtered = [d for d in filtered if _keep_deal_year(d)]
 
     # Status filter
     if status_filter:
