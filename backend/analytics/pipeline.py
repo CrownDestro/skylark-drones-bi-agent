@@ -29,12 +29,7 @@ def _prob_weight(deal: Dict) -> float:
 
 def _is_open(deal: Dict) -> bool:
     status = deal.get("deal_status") or ""
-    stage = deal.get("deal_stage") or ""
-    if status in CLOSED_WON_STATUSES or status in CLOSED_LOST_STATUSES:
-        return False
-    if stage in CLOSED_WON_STATUSES or stage in CLOSED_LOST_STATUSES:
-        return False
-    return True
+    return status == "Open"
 
 
 def _in_period(deal: Dict, start: datetime, end: datetime) -> bool:

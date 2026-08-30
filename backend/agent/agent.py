@@ -349,26 +349,65 @@ class BIAgent:
             return False
         return (datetime.now() - self._cache_time).total_seconds() < self.CACHE_SECONDS
 
-    def _load_data(self) -> Tuple[List[Dict], List[Dict]]:
-        """Load and normalize data from Monday.com (with 5-min cache)."""
-        if self._is_cache_valid() and self._deals_cache is not None:
+    def _load_data(self, needs_deals: bool = True, needs_wos: bool = True, progress_callback=None) -> Tuple[List[Dict], List[Dict]]:
+        """Load and normalize data from Monday.com (with 5-min cache, parallel fetch if needed)."""
+        if self._is_cache_valid() and self._deals_cache is not None and self._work_orders_cache is not None:
+            if progress_callback:
+                progress_callback({"stage": "fetching_cache", "status": "complete", "message": "Using cached board data"})
             return self._deals_cache, self._work_orders_cache
 
         from backend.monday.boards import fetch_deals, fetch_work_orders
+        import concurrent.futures
 
-        raw_deals = fetch_deals()
-        raw_wos = fetch_work_orders()
+        raw_deals = []
+        raw_wos = []
 
-        self._deals_cache = normalize_deals(raw_deals)
-        self._work_orders_cache = normalize_work_orders(raw_wos)
-        self._deals_quality = check_deals_quality(self._deals_cache)
-        self._work_orders_quality = check_work_orders_quality(self._work_orders_cache)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            future_deals = None
+            future_wos = None
+
+            if needs_deals:
+                if progress_callback:
+                    progress_callback({"stage": "fetching_deals", "status": "running"})
+                future_deals = executor.submit(fetch_deals)
+            if needs_wos:
+                if progress_callback:
+                    progress_callback({"stage": "fetching_work_orders", "status": "running"})
+                future_wos = executor.submit(fetch_work_orders)
+
+            if future_deals:
+                raw_deals = future_deals.result()
+                if progress_callback:
+                    progress_callback({"stage": "fetching_deals", "status": "complete", "message": f"Retrieved {len(raw_deals)} Deals"})
+            
+            if future_wos:
+                raw_wos = future_wos.result()
+                if progress_callback:
+                    progress_callback({"stage": "fetching_work_orders", "status": "complete", "message": f"Retrieved {len(raw_wos)} Work Orders"})
+
+        if progress_callback:
+            progress_callback({"stage": "normalizing", "status": "running"})
+
+        if needs_deals:
+            self._deals_cache = normalize_deals(raw_deals)
+            self._deals_quality = check_deals_quality(self._deals_cache)
+        
+        if needs_wos:
+            self._work_orders_cache = normalize_work_orders(raw_wos)
+            self._work_orders_quality = check_work_orders_quality(self._work_orders_cache)
+            
         self._cache_time = datetime.now()
 
-        logger.info("Loaded %d deals and %d work orders", len(self._deals_cache), len(self._work_orders_cache))
-        return self._deals_cache, self._work_orders_cache
+        if progress_callback:
+            progress_callback({"stage": "normalizing", "status": "complete", "message": "Data normalized and validated"})
 
-    def chat(self, user_message: str, conversation_history: List[Dict] = None) -> Dict[str, Any]:
+        logger.info("Loaded %d deals and %d work orders", 
+                    len(self._deals_cache) if self._deals_cache else 0, 
+                    len(self._work_orders_cache) if self._work_orders_cache else 0)
+        
+        return self._deals_cache or [], self._work_orders_cache or []
+
+    def chat(self, user_message: str, conversation_history: List[Dict] = None, progress_callback=None) -> Dict[str, Any]:
         """
         Main entry point. Returns a dict with:
           - response: str (formatted answer)
@@ -397,8 +436,17 @@ class BIAgent:
                     "sources": [],
                 }
 
+            if progress_callback:
+                progress_callback({"stage": "understanding", "status": "complete", "message": f"Identified intent: {intent}"})
+
+            needs_deals = intent in ("pipeline_analysis", "deals_analysis", "sector_analysis", "cross_board_analysis", "leadership_update", "data_provenance", "forecast_reliability", "general_query")
+            needs_wos = intent in ("revenue_analysis", "work_order_analysis", "sector_analysis", "cross_board_analysis", "leadership_update", "data_provenance", "general_query")
+
             # Load data from Monday.com (with 5-min cache)
-            deals, work_orders = self._load_data()
+            deals, work_orders = self._load_data(needs_deals=needs_deals, needs_wos=needs_wos, progress_callback=progress_callback)
+
+            if progress_callback:
+                progress_callback({"stage": "analytics", "status": "running"})
 
             # ── Analytics dispatch ─────────────────────────────────────────────
             analytics_data: Dict = {}
@@ -484,6 +532,10 @@ class BIAgent:
 
             # Build structured context for LLM
             context = build_context(analytics_data)
+
+            if progress_callback:
+                progress_callback({"stage": "analytics", "status": "complete", "message": "Calculated metrics"})
+                progress_callback({"stage": "generating_response", "status": "running"})
 
             # ── LLM generation ────────────────────────────────────────────────
             llm_response = self._llm.generate(SYSTEM_PROMPT, user_message, context)

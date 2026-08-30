@@ -17,13 +17,19 @@ Endpoints:
   GET  /         → API info
 """
 import asyncio
+import json
 import logging
 import sys
 from datetime import datetime
 from typing import List, Optional
 
-from fastapi import FastAPI, HTTPException
+# pyrefly: ignore [missing-import]
+from fastapi import FastAPI, HTTPException, Request
+# pyrefly: ignore [missing-import]
 from fastapi.middleware.cors import CORSMiddleware
+# pyrefly: ignore [missing-import]
+from fastapi.responses import StreamingResponse
+# pyrefly: ignore [missing-import]
 from pydantic import BaseModel
 
 from backend.config import FRONTEND_URL, MONDAY_API_TOKEN
@@ -188,6 +194,104 @@ async def chat(request: ChatRequest):
     )
 
 
+@app.post("/chat/stream")
+async def chat_stream(request: ChatRequest, req: Request):
+    """
+    Streaming SSE endpoint.
+    Streams progress events before returning the final response.
+    """
+    message = (request.message or "").strip()
+    if not message:
+        raise HTTPException(status_code=400, detail="Message cannot be empty.")
+
+    if not MONDAY_API_TOKEN:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Monday.com API token not configured. "
+                "Set MONDAY_API_TOKEN environment variable."
+            ),
+        )
+
+    agent = _get_agent()
+    history = [{"role": m.role, "content": m.content} for m in (request.history or [])]
+    
+    queue = asyncio.Queue()
+    loop = asyncio.get_running_loop()
+
+    def progress_callback(event: dict):
+        # We need to run this thread-safely because the callback runs in the thread pool
+        asyncio.run_coroutine_threadsafe(queue.put(event), loop)
+
+    async def event_generator():
+        # Start background task
+        task = asyncio.create_task(asyncio.to_thread(agent.chat, message, history, progress_callback))
+        
+        while not task.done():
+            try:
+                # Wait for an event with timeout so we can check if client disconnected
+                event = await asyncio.wait_for(queue.get(), timeout=1.0)
+                yield f"data: {json.dumps(event)}\n\n"
+            except asyncio.TimeoutError:
+                if await req.is_disconnected():
+                    task.cancel()
+                    break
+
+        # Flush any remaining events
+        while not queue.empty():
+            event = queue.get_nowait()
+            yield f"data: {json.dumps(event)}\n\n"
+            
+        # Get final result or handle error
+        if not task.cancelled():
+            try:
+                result = task.result()
+                
+                # Build source list for transparency
+                sources = []
+                analytics = result.get("analytics_used", [])
+                if any(k in analytics for k in ("pipeline", "deals_analysis", "sector_analysis", "cross_board")):
+                    sources.append("Deals Board")
+                if any(k in analytics for k in ("revenue", "operations", "work_order_analysis", "cross_board")):
+                    sources.append("Work Orders Board")
+                if "leadership_update" in analytics:
+                    sources = ["Deals Board", "Work Orders Board"]
+                
+                filters = {}
+                if result.get("sector"):
+                    filters["sector"] = result["sector"]
+                if result.get("period"):
+                    filters["period"] = result["period"]
+
+                final_resp = {
+                    "stage": "complete",
+                    "status": "complete",
+                    "message": "Generated final response",
+                    "data": {
+                        "response": result.get("response", "I encountered an error. Please try again."),
+                        "intent": result.get("intent", "unknown"),
+                        "sector": result.get("sector"),
+                        "period": result.get("period"),
+                        "sources": sources,
+                        "data_quality": result.get("data_quality", {}),
+                        "analytics_used": analytics,
+                        "filters": filters,
+                        "timestamp": datetime.now().isoformat(),
+                    }
+                }
+                yield f"data: {json.dumps(final_resp)}\n\n"
+            except Exception as exc:
+                logger.exception("Unhandled error in agent.chat: %s", exc)
+                error_resp = {
+                    "stage": "error",
+                    "status": "error",
+                    "message": "Internal error. Please try again.",
+                    "data": {}
+                }
+                yield f"data: {json.dumps(error_resp)}\n\n"
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+
 @app.get("/")
 async def root():
     """API info — no secrets exposed."""
@@ -197,5 +301,6 @@ async def root():
         "docs": "/docs",
         "health": "/health",
         "chat": "POST /chat",
+        "chat_stream": "POST /chat/stream",
         "monday_source": "read-only",
     }

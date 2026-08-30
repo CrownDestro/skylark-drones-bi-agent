@@ -72,6 +72,10 @@ class GeminiProvider:
             return None
 
         except Exception as e:
+            err = str(e)
+            if "429" in err or "RESOURCE_EXHAUSTED" in err:
+                logger.warning("Gemini provider hit rate limit. Fast-failing to next provider.")
+                return None
             logger.warning("Gemini provider error: %s: %s", type(e).__name__, e)
             return None
 
@@ -86,6 +90,7 @@ class GeminiProvider:
                     temperature=0.3,
                     max_output_tokens=1024,
                     system_instruction=None,
+                    automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True)
                 ),
             )
             text = response.text if hasattr(response, "text") else ""
@@ -94,7 +99,10 @@ class GeminiProvider:
                 return text.strip()
         except Exception as e:
             err = str(e)
-            if "not found" in err.lower() or "deprecated" in err.lower() or "not supported" in err.lower():
+            if "429" in err or "RESOURCE_EXHAUSTED" in err:
+                logger.warning("Gemini model %s rate limited (429). Failing fast to fallback.", model)
+                raise  # Re-raise to break the model loop immediately
+            elif "not found" in err.lower() or "deprecated" in err.lower() or "not supported" in err.lower():
                 logger.warning("Gemini model %s unavailable: %s", model, err[:120])
             else:
                 logger.warning("Gemini model %s error: %s: %s", model, type(e).__name__, err[:120])

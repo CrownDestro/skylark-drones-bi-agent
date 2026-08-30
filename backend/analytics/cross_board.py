@@ -9,6 +9,8 @@ from backend.analytics.utils import fmt_inr, safe_sum
 from backend.config import PROBABILITY_WEIGHTS
 
 
+from backend.analytics.pipeline import _is_open
+
 def cross_board_sector_analysis(
     deals: List[Dict],
     work_orders: List[Dict],
@@ -26,7 +28,7 @@ def cross_board_sector_analysis(
         "pipeline": 0.0, "weighted_pipeline": 0.0, "deal_count": 0
     })
     for d in deals:
-        if (d.get("deal_status") or "").lower() in ("won", "lost", "cancelled"):
+        if not _is_open(d):
             continue
         sec = d.get("sector") or "Unknown"
         v = d.get("deal_value") or 0
