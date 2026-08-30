@@ -1,7 +1,3 @@
-"""
-Central configuration — reads from environment variables.
-Never hardcodes secrets.
-"""
 import os
 from dotenv import load_dotenv
 

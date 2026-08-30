@@ -39,52 +39,13 @@ FastAPI Backend (Python)
 
 ---
 
-## Features
-
-### Supported Queries (all validated against live Monday data)
-
-| # | Query Type | Example |
-|---|---|---|
-| 1 | Total pipeline | "What is our total pipeline?" |
-| 2 | Sector pipeline | "How is the energy sector pipeline looking?" |
-| 3 | Quarter pipeline | "How is our energy pipeline this quarter?" |
-| 4 | Biggest deals | "What are our biggest open deals?" |
-| 5 | Billing | "How much have we billed?" |
-| 6 | Collections | "How much have we collected?" |
-| 7 | Receivables | "How much is outstanding?" |
-| 8 | Work orders | "How are our work orders performing?" |
-| 9 | Sector comparison | "Which sector has the strongest pipeline?" |
-| 10 | Cross-board analysis | "Which sectors have strong pipeline but weak execution?" |
-| 11 | Leadership update | "Prepare a leadership update for this quarter." |
-| 12 | Ambiguous → clarification | "How is the business doing?" |
-| 13 | Forecast reliability | "How reliable is our pipeline forecast?" |
-| 14 | Data transparency | "What data did you use to answer this?" |
-
-### Validated Analytics (30 Aug 2026, live data)
-
-| Metric | Value |
-|---|---|
-| Total open pipeline | ₹221.05 Cr (179 deals) |
-| Weighted pipeline* | ₹72.29 Cr |
-| Won value | ₹9.50 Cr |
-| Contract (WO) | ₹21.16 Cr |
-| Billed value | ₹12.67 Cr |
-| Collected | ₹9.04 Cr |
-| Receivables | ₹3.63 Cr |
-| Collection rate | 71.4% |
-| Top pipeline sector | Powerline (₹80.59 Cr) |
-
-*Weighted pipeline uses assumed probabilities: High 80%, Medium 50%, Low 20%, Unknown 30% — not from source data.
-
----
-
 ## Tech Stack
 
 | Layer | Technology |
 |---|---|
-| Frontend | HTML/CSS/JavaScript (single-file, no build step) |
+| Frontend | Next JS |
 | Backend | Python 3.13 + FastAPI + uvicorn |
-| Business Analytics | Deterministic Python (no LLM math) |
+| Business Analytics | Python |
 | Monday Integration | Monday.com GraphQL API v2 (read-only) |
 | LLM Primary | Google Gemini 1.5 Flash (free tier) |
 | LLM Fallback | Groq LLaMA 3.3 70B (free tier) |
@@ -101,8 +62,6 @@ Two boards were created by importing the provided Excel files:
 | Deals | `5030966894` | 344 usable records |
 | Work Orders | `5030966898` | 176 usable records |
 
-The Excel files are **not used at runtime**. All data is fetched live from Monday.com.
-
 ---
 
 ## Data Quality
@@ -115,9 +74,7 @@ The dataset contains intentional messiness. Key quality metrics:
 | Close date | 92% (318/344) | Quarter filtering has limited precision |
 | Closure probability | 75% (258/344) | Weighted pipeline uses 30% default for most deals |
 | Collected amount (WO) | 56% (98/176) | Collection rate may be understated |
-| WO status | 42% (74/176) | Status breakdown is partial |
-
-The agent surfaces material caveats when they affect the answer.
+| Work Order status | 42% (74/176) | Status breakdown is partial |
 
 ---
 
@@ -133,19 +90,6 @@ Raw sector values are mapped to canonical names:
 | RAILWAYS, railway | Railways |
 | DSP | DSP |
 | energy | Renewables + Powerline (merged query) |
-
----
-
-## LLM Provider Architecture
-
-```
-backend/agent/llm.py           ← provider router
-backend/agent/providers/
-    gemini.py                  ← Gemini 1.5 Flash
-    groq.py                    ← Groq LLaMA 3.3 70B
-```
-
-The router tries Gemini first. On any failure (API error, quota, timeout), it tries Groq. If both fail, a deterministic Python response is returned. No single provider is required for the system to function.
 
 ---
 
@@ -172,7 +116,6 @@ FRONTEND_URL=https://your-frontend.netlify.app
 ## Local Setup
 
 ```bash
-# Clone/unzip and enter directory
 cd skylar_drones
 
 # Install dependencies
@@ -180,25 +123,15 @@ pip install -r requirements.txt
 
 # Configure environment
 cp .env.example .env
-# Edit .env with your credentials
 
 # Start backend
 py -3.13 -m uvicorn backend.main:app --reload --port 8000
 
-# Open frontend
-# Open frontend/index.html in browser
-# (or use a local server: python -m http.server 3000 --directory frontend)
 ```
 
 ---
 
 ## API Endpoints
-
-### `GET /health`
-Returns service status. Never exposes secrets.
-```json
-{"status": "ok", "monday_configured": true, "timestamp": "..."}
-```
 
 ### `POST /chat`
 Main conversational endpoint.
@@ -225,29 +158,6 @@ Main conversational endpoint.
   "timestamp": "..."
 }
 ```
-
-### `GET /`
-API info. No secrets exposed.
-
----
-
-## Deployment
-
-### Backend — Render.com (free tier)
-
-1. Push code to GitHub (ensure `.env` is in `.gitignore`)
-2. Create account at [render.com](https://render.com)
-3. New → Web Service → connect repo
-4. Build: `pip install -r requirements.txt`
-5. Start: `uvicorn backend.main:app --host 0.0.0.0 --port $PORT`
-6. Add environment variables in Render dashboard (never commit secrets)
-7. The `render.yaml` in the project root can automate this
-
-### Frontend — Netlify / GitHub Pages
-
-1. Edit `frontend/index.html` line: `const API = '...'` → your Render URL
-2. Deploy the `frontend/` folder to Netlify (drag-and-drop works)
-
 ---
 
 ## Analytical Assumptions
@@ -269,9 +179,9 @@ All assumptions are documented in `DECISION_LOG.md`.
 
 ```
 skylar_drones/
-├── data/                        # Source Excel files (not used at runtime)
+├── data/                        # problem statement & Source Excel files
 ├── frontend/
-│   └── index.html               # Single-page conversational UI
+│   └──
 ├── backend/
 │   ├── main.py                  # FastAPI application
 │   ├── config.py                # Environment variable loading
@@ -294,33 +204,20 @@ skylar_drones/
 │       └── providers/
 │           ├── gemini.py        # Google Gemini provider
 │           └── groq.py          # Groq provider
-├── validate.py                  # Full validation (all 14 query types)
-├── test_api.py                  # Live API tests
-├── render.yaml                  # Render.com deployment config
+├── tests/
 ├── requirements.txt
 ├── .env.example
-├── .gitignore                   # .env excluded
+├── .gitignore
 ├── DECISION_LOG.md
 └── README.md
 ```
 
 ---
 
-## Security
-
-- `MONDAY_API_TOKEN`, `GEMINI_API_KEY`, `GROQ_API_KEY` are loaded from environment variables only
-- `.env` is excluded from version control via `.gitignore`
-- `.env.example` contains variable names only — no values
-- No secrets are exposed in API responses or logs
-- Monday integration is read-only (no create/update/delete operations)
-
----
-
 ## Known Limitations
 
-1. **Cold start latency** — first query after a Render free-tier sleep takes 30–60s (Monday API fetch)
-2. **Quarterly forecasting** — 92% of deals lack a close date; Q3 filter has limited precision
-3. **LLM rate limits** — free tiers have monthly/daily limits; deterministic fallback handles overload
-4. **Currency not confirmed** — INR assumed from business context, not validated in source data
-5. **Sector matching** — cross-board sector join is on normalised text; unrecognised sectors go to "Unknown"
-6. **No conversation memory** — history within a session only; cleared on page refresh
+1. **Quarterly forecasting** — 92% of deals lack a close date; Q3 filter has limited precision
+2. **LLM rate limits** — free tiers have monthly/daily limits; deterministic fallback handles overload
+3. **Currency not confirmed** — INR assumed from business context, not validated in source data
+4. **Sector matching** — cross-board sector join is on normalised text; unrecognised sectors go to "Unknown"
+5. **No conversation memory** — history within a session only; cleared on page refresh

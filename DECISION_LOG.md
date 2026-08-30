@@ -1,37 +1,26 @@
 # Decision Log — Skylark Drones BI Agent
 
-**Author:** Technical Candidate  
-**Date:** 30 August 2026  
+**Author:** Dheeraj M  
 **Scope:** Monday.com Business Intelligence Agent — key decisions, trade-offs, and assumptions
 
 ---
 
-## 1. Why Monday GraphQL API (not MCP)
+## Assumption: Use of free tier LLM like gemini and grok and not Ollama
 
-The assignment asks for Monday.com integration. The Monday.com Model Context Protocol (MCP) server is a newer tool, but it routes the LLM directly to Monday, which would violate the requirement that numerical calculations be deterministic and controlled. Instead, the backend exclusively owns the Monday integration via the GraphQL v2 API. The LLM sees only structured analytical results, never raw Monday data.
-
-**Decision:** Monday GraphQL API → Python analytics → LLM explanation.
+**Cause:** Use free hosted APIs as Ollama requires a local GPU or CPU inference server. Gemini (free tier, Google AI Studio) offers zero-cost access suitable for BI responses. Groq (LLaMA 3.3 70B) provides a fast, generous free-tier fallback. Both require only an API key and work in any hosted environment.
 
 ---
 
-## 2. Why Free Hosted LLM (not Ollama)
+## Assumption: Use LLM Is Used Only for Language and python for computation and Numbers
 
-Ollama requires a local GPU or CPU inference server. A hosted prototype evaluated by a third party cannot depend on a local machine. Gemini 1.5 Flash (free tier, Google AI Studio) offers zero-cost access suitable for BI responses. Groq (LLaMA 3.3 70B) provides a fast, generous free-tier fallback. Both require only an API key and work in any hosted environment.
+**Decision:** Use python as, Python handles all arithmetic. LLM handles only intent detection and prose generation.
 
-**Provider chain:** Gemini → Groq → Deterministic structured fallback  
-**Decision:** Free hosted APIs; LLM provider abstracted behind `backend/agent/llm.py`.
-
----
-
-## 3. Why LLM Is Used Only for Language, Not Numbers
 
 The dataset is intentionally messy. Trusting an LLM to sum, filter, or aggregate monetary values risks hallucinated numbers being presented as business facts to an executive. All sums, percentages, ratios, and aggregations are performed by Python. The LLM receives a JSON analytics context and converts it into executive-level language only.
 
-**Decision:** Python handles all arithmetic. LLM handles only intent detection and prose generation.
-
 ---
 
-## 4. Assumptions
+## -> Assumptions
 
 The following core assumptions were strictly applied in the analytics logic:
 
@@ -51,7 +40,7 @@ The following core assumptions were strictly applied in the analytics logic:
 
 ---
 
-## 5. Closure Probability Transparency
+## Closure Probability Transparency
 
 The Closure Probability field in Monday contains qualitative values: **High**, **Medium**, **Low** (or empty). These are not numeric probabilities — they are CRM labels.
 
@@ -59,9 +48,7 @@ The Closure Probability field in Monday contains qualitative values: **High**, *
 
 ---
 
-
-
-## 7. Data Quality Observations (Actual Data — Validated 30 Aug 2026)
+## Data Quality Observations (Actual Data — Validated 30 Aug 2026)
 
 | Board | Issue | Count | Impact |
 |---|---|---|---|
@@ -75,23 +62,15 @@ The system surfaces these as material caveats wherever they affect the requested
 
 ---
 
-## 8. Leadership Update Interpretation
+## Assumption: Do Sector Normalisation
 
-The assignment described a "leadership update" without a fixed schema. This was interpreted as an executive summary combining: sales pipeline snapshot, operational/WO performance, billing and collections, key risks, and cross-sector insights. The format follows a standard board-ready structure (Sales / Execution / Financial / Risks / Opportunities).
+Raw sector values are mapped to canonical names:
 
----
-
-## 9. What Would Be Improved with More Time
-
-1. **Persistent caching (Redis)** — eliminate the 20–30s Monday fetch on first request
-2. **Scheduled data refresh** — cache warmed at startup, not on first user query
-3. **Historical trend analysis** — QoQ pipeline comparison once data accumulates
-4. **Richer cross-board matching** — sector name normalization between boards is approximate
-5. **Authenticated frontend** — currently open to anyone with the URL
-6. **Conversation memory** — short-term session memory improves follow-up queries
-7. **Chart rendering** — bar charts for sector breakdown would improve executive experience
-8. **Deal-level search** — "find me all Mining deals above ₹5 Cr" requires item-level filtering
-
----
-
-*All values shown in responses are retrieved live from Monday.com. Excel files were used only to populate Monday.com and are not accessed at runtime.*
+| Raw | Canonical |
+|---|---|
+| MINING, mining sector | Mining |
+| RENEWABLES, renewable | Renewables |
+| POWERLINE, power line | Powerline |
+| RAILWAYS, railway | Railways |
+| DSP | DSP |
+| energy | Renewables + Powerline (merged query) |
