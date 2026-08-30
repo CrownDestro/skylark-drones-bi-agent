@@ -52,9 +52,16 @@ app = FastAPI(
 )
 
 # CORS: allow frontend origins
-# Load CORS origins from environment, with local fallbacks
-frontend_urls_env = os.getenv("FRONTEND_URLS", "http://localhost:3000,http://127.0.0.1:3000")
-ALLOWED_ORIGINS = [url.strip().rstrip('/') for url in frontend_urls_env.split(",") if url.strip()]
+frontend_urls_env = os.getenv("FRONTEND_URLS", "")
+# Always include local development origins
+_raw_origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
+if frontend_urls_env:
+    _raw_origins.extend(frontend_urls_env.split(","))
+
+ALLOWED_ORIGINS = list(set([url.strip().rstrip('/') for url in _raw_origins if url.strip()]))
+
+# Log the allowed CORS origins on startup
+logger.info(f"Configured CORS Allowed Origins: {ALLOWED_ORIGINS}")
 
 app.add_middleware(
     CORSMiddleware,
